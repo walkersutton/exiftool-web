@@ -7,6 +7,7 @@
 	let output: ParsedOutput;
 	let dropzone: HTMLDivElement;
 	let isDragging = false;
+	let isSaving = false;
 	let fileInput: HTMLInputElement;
 	let fileUrl: string | null = null;
 	let currentFile: File | null = null;
@@ -52,6 +53,7 @@
 	}
 
 	async function selectFile(file: File) {
+		if (isSaving) return;
 		currentFile = file;
 		if (fileUrl) {
 			URL.revokeObjectURL(fileUrl);
@@ -144,8 +146,9 @@
                     <div class="flex flex-col gap-2 overflow-auto">
                         {#each files.reverse() as file}
                             <button
-                                class="flex flex-col gap-1 p-3 text-left border rounded hover:bg-gray-50 transition-colors {file === currentFile ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}"
+                                class="flex flex-col gap-1 p-3 text-left border rounded hover:bg-gray-50 transition-colors {file === currentFile ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} {isSaving ? 'cursor-not-allowed opacity-60' : ''}"
                                 on:click={() => selectFile(file)}
+                                disabled={isSaving}
                             >
                                 <div class="font-mono truncate">{file.name}</div>
                                 <div class="text-sm text-gray-500 font-mono">
@@ -157,7 +160,7 @@
                     </div>
                 </div>
                 {#if fileUrl}
-                    <FileDisplay {fileUrl} currentFile={currentFile} {output} />
+                    <FileDisplay {fileUrl} currentFile={currentFile} {output} bind:isSaving />
                 {/if}
             </div>
         {/if}

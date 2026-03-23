@@ -44,6 +44,7 @@
 	"dependencies": {
 		"@bjorn3/browser_wasi_shim": "^0.4.1",
 		"@fontsource/roboto": "^5.1.1",
+		"clsx": "^2.1.1",
 		"svelte-file-dropzone": "^2.0.9"
 	}
 }
