@@ -1,7 +1,11 @@
 <script lang="ts">
     import type { ParsedOutput } from "$lib/types/parsed-output";
+    import { createEventDispatcher } from 'svelte';
     import { fade } from 'svelte/transition';
     import { clsx } from 'clsx';
+    import { updateExifMetadata } from '$lib/utils/update-exif-metadata';
+
+    const dispatch = createEventDispatcher<{ save: globalThis.File }>();
 
     export let fileUrl: string;
     export let currentFile: File | null;
@@ -12,6 +16,8 @@
     let searchTerm = '';
     let filteredOutput: ParsedOutput = [];
     let isEditing = false;
+    let originalValues = new Map<string, string>();
+    let saveError = '';
 
     $: if (currentFile) {
         // Reset scroll position when file changes
@@ -37,14 +43,31 @@
     }
 
     async function handleSubmit() {
+        if (!currentFile) return;
         isSaving = true;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        isSaving = false;
-        isEditing = false;
+        saveError = '';
+        const updates: Record<string, string> = {};
+        for (const item of output) {
+            if (item.writable && originalValues.get(item.label) !== item.value) {
+                updates[item.label] = item.value;
+            }
+        }
+        try {
+            if (Object.keys(updates).length > 0) {
+                const updatedFile = await updateExifMetadata(currentFile, updates);
+                dispatch('save', updatedFile);
+            }
+            isEditing = false;
+        } catch (e: any) {
+            saveError = e?.message ?? 'Save failed.';
+        } finally {
+            isSaving = false;
+        }
     }
 
     function toggleEditing() {
         if (!isEditing) {
+            originalValues = new Map(output.map(item => [item.label, item.value]));
             isEditing = true;
         }
     }
@@ -92,25 +115,30 @@
                     class="p-1"
                 >
                     <div class="flex flex-col gap-1 md:grid md:grid-cols-2 md:gap-2 font-mono text-xs lg:text-base md:text-base">
-                        {#each filteredOutput as {label, value}}
-                            <div class="font-semibold">{label}</div>
-                            <input 
+                        {#each filteredOutput as item}
+                            <div class="font-semibold {item.writable ? '' : 'text-gray-400'}">{item.label}</div>
+                            <input
                                 class={clsx(
                                     "mb-2 md:mb-0 p-1 rounded focus:outline-none transition-all duration-300 ease-in-out border",
-                                    isSaving 
-                                        ? "bg-gray-200 border-gray-300 cursor-not-allowed" 
-                                        : (isEditing 
-                                            ? "bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 shadow-sm shadow-blue-50/50" 
-                                            : "bg-transparent border-transparent cursor-pointer hover:bg-gray-200")
+                                    !item.writable
+                                        ? "bg-transparent border-transparent text-gray-400 cursor-default select-none"
+                                        : isSaving
+                                            ? "bg-gray-200 border-gray-300 cursor-not-allowed"
+                                            : (isEditing
+                                                ? "bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 shadow-sm shadow-blue-50/50"
+                                                : "bg-transparent border-transparent cursor-pointer hover:bg-gray-200")
                                 )}
-                                bind:value={value}
-                                readonly={!isEditing}
+                                bind:value={item.value}
+                                readonly={!isEditing || !item.writable}
                                 disabled={isSaving}
-                                on:click={toggleEditing}
+                                on:click={item.writable ? toggleEditing : undefined}
                             />
                         {/each}
                     </div>
                 </form>
+                {#if saveError}
+                    <p transition:fade={{ duration: 150 }} class="mt-2 text-xs text-red-600 font-mono">{saveError}</p>
+                {/if}
                 {#if filteredOutput.length === 0 && searchTerm.trim() !== ''}
                     <div class="flex justify-center items-center h-full text-gray-500 font-mono text-sm md:text-base">
                         No metadata matches your search

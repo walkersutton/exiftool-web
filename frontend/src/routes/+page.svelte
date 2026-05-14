@@ -62,6 +62,21 @@
 		output = await runExifTools(file);
 	}
 
+	async function handleSave(e: CustomEvent<File>) {
+		const updatedFile = e.detail;
+		const idx = files.indexOf(currentFile!);
+		if (idx !== -1) files[idx] = updatedFile;
+		files = [...files];
+		await selectFile(updatedFile);
+
+		const downloadUrl = URL.createObjectURL(updatedFile);
+		const a = document.createElement('a');
+		a.href = downloadUrl;
+		a.download = updatedFile.name;
+		a.click();
+		URL.revokeObjectURL(downloadUrl);
+	}
+
 	function formatFileSize(bytes: number): string {
 		if (bytes < 1024) return bytes + ' B';
 		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -160,7 +175,7 @@
                     </div>
                 </div>
                 {#if fileUrl}
-                    <FileDisplay {fileUrl} currentFile={currentFile} {output} bind:isSaving />
+                    <FileDisplay {fileUrl} currentFile={currentFile} {output} bind:isSaving on:save={handleSave} />
                 {/if}
             </div>
         {/if}

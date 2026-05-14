@@ -1,1 +1,1 @@
-export type ParsedOutput = { label: string; value: string }[];
+export type ParsedOutput = { label: string; value: string; writable: boolean }[];
