@@ -13,6 +13,9 @@
 	let currentFile: File | null = null;
 	let files: File[] = [];
 
+	const fileHandles = new Map<File, FileSystemFileHandle>();
+	const canUseFileSystemAccess = typeof window !== 'undefined' && 'showOpenFilePicker' in window;
+
 	function handleDragEnter(e: DragEvent) {
 		e.preventDefault();
 		isDragging = true;
@@ -26,17 +29,49 @@
 	async function handleDrop(e: DragEvent) {
 		e.preventDefault();
 		isDragging = false;
-		const droppedFiles = e.dataTransfer?.files;
-		if (droppedFiles && droppedFiles.length > 0) {
-			files = [...files, ...Array.from(droppedFiles)];
-			if (!currentFile) {
-				await selectFile(files[0]);
+		const items = e.dataTransfer?.items;
+		if (!items) return;
+		const newFiles: File[] = [];
+		for (const item of Array.from(items)) {
+			if (item.kind !== 'file') continue;
+			let file: File | null = null;
+			if ('getAsFileSystemHandle' in item) {
+				const handle = (await (item as any).getAsFileSystemHandle()) as FileSystemFileHandle | null;
+				if (handle?.kind === 'file') {
+					file = await handle.getFile();
+					fileHandles.set(file, handle);
+				}
 			}
+			if (!file) file = item.getAsFile();
+			if (file) newFiles.push(file);
+		}
+		if (newFiles.length > 0) {
+			files = [...files, ...newFiles];
+			if (!currentFile) await selectFile(newFiles[0]);
 		}
 	}
 
-	function handleClick() {
-		fileInput.click();
+	async function handleClick() {
+		if (!canUseFileSystemAccess) {
+			fileInput.click();
+			return;
+		}
+		let handles: FileSystemFileHandle[];
+		try {
+			handles = await (window as any).showOpenFilePicker({ multiple: true });
+		} catch {
+			return; // user cancelled
+		}
+		const newFiles: File[] = [];
+		for (const handle of handles) {
+			const file = await handle.getFile();
+			fileHandles.set(file, handle);
+			newFiles.push(file);
+		}
+		if (newFiles.length > 0) {
+			files = [...files, ...newFiles];
+			if (!currentFile) await selectFile(newFiles[0]);
+		}
 	}
 
 	async function handleFileSelect(e: Event) {
@@ -64,17 +99,25 @@
 
 	async function handleSave(e: CustomEvent<File>) {
 		const updatedFile = e.detail;
+		const handle = fileHandles.get(currentFile!);
 		const idx = files.indexOf(currentFile!);
 		if (idx !== -1) files[idx] = updatedFile;
 		files = [...files];
+		if (handle) fileHandles.set(updatedFile, handle);
 		await selectFile(updatedFile);
 
-		const downloadUrl = URL.createObjectURL(updatedFile);
-		const a = document.createElement('a');
-		a.href = downloadUrl;
-		a.download = updatedFile.name;
-		a.click();
-		URL.revokeObjectURL(downloadUrl);
+		if (handle) {
+			const writable = await handle.createWritable();
+			await writable.write(updatedFile);
+			await writable.close();
+		} else {
+			const downloadUrl = URL.createObjectURL(updatedFile);
+			const a = document.createElement('a');
+			a.href = downloadUrl;
+			a.download = updatedFile.name;
+			a.click();
+			URL.revokeObjectURL(downloadUrl);
+		}
 	}
 
 	function formatFileSize(bytes: number): string {
