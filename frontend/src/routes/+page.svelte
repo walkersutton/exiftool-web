@@ -202,7 +202,7 @@
                     </div>
 
                     <div class="flex flex-col gap-2 overflow-auto">
-                        {#each files.reverse() as file}
+                        {#each [...files].reverse() as file}
                             <button
                                 class="flex flex-col gap-1 p-3 text-left border rounded hover:bg-gray-50 transition-colors {file === currentFile ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} {isSaving ? 'cursor-not-allowed opacity-60' : ''}"
                                 on:click={() => selectFile(file)}
