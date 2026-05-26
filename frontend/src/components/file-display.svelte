@@ -5,12 +5,16 @@
     import { clsx } from 'clsx';
     import { updateExifMetadata } from '$lib/utils/update-exif-metadata';
 
-    const dispatch = createEventDispatcher<{ save: globalThis.File }>();
+    const dispatch = createEventDispatcher<{ 
+        saved: { modifiedFile: globalThis.File; changes: Record<string, string> };
+    }>();
 
     export let fileUrl: string;
     export let currentFile: File | null;
     export let output: ParsedOutput;
     export let isSaving = false;
+    export let hasSavedChanges = false;
+    export let savedFile: File | null = null;
 
     let container: HTMLDivElement;
     let searchTerm = '';
@@ -20,7 +24,6 @@
     let saveError = '';
 
     $: if (currentFile) {
-        // Reset scroll position when file changes
         if (container) {
             container.scrollTop = 0;
         }
@@ -42,7 +45,7 @@
         }
     }
 
-    async function handleSubmit() {
+    async function handleSave() {
         if (!currentFile) return;
         isSaving = true;
         saveError = '';
@@ -54,10 +57,11 @@
         }
         try {
             if (Object.keys(updates).length > 0) {
-                const updatedFile = await updateExifMetadata(currentFile, updates);
-                dispatch('save', updatedFile);
+                const modifiedFile = await updateExifMetadata(currentFile, updates);
+                savedFile = modifiedFile;
+                hasSavedChanges = true;
+                dispatch('saved', { modifiedFile, changes: updates });
             }
-            isEditing = false;
         } catch (e: any) {
             saveError = e?.message ?? 'Save failed.';
         } finally {
@@ -65,10 +69,31 @@
         }
     }
 
+    function handleDownload() {
+        if (!savedFile) return;
+        const url = URL.createObjectURL(savedFile);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = savedFile.name;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     function toggleEditing() {
         if (!isEditing) {
             originalValues = new Map(output.map(item => [item.label, item.value]));
             isEditing = true;
+            if (typeof window !== 'undefined') {
+                window.history.replaceState({}, '', '/edit');
+            }
+        }
+    }
+
+    function handleCancel() {
+        isEditing = false;
+        hasSavedChanges = false;
+        if (typeof window !== 'undefined') {
+            window.history.replaceState({}, '', '/');
         }
     }
 </script>
@@ -83,19 +108,30 @@
                         transition:fade={{ duration: 150 }}
                         type="button" 
                         class="px-2 md:px-3 py-1 md:py-1.5 bg-gray-200 text-gray-700 rounded text-xs md:text-sm hover:bg-gray-300 border border-gray-300 transition-colors font-medium whitespace-nowrap"
-                        on:click={() => { isEditing = false; }}
+                        on:click={handleCancel}
                     >
                         Cancel
                     </button>
-                    <button 
-                        transition:fade={{ duration: 150 }}
-                        type="submit" 
-                        form="metadata-form"
-                        disabled={isSaving}
-                        class="px-2 md:px-3 py-1 md:py-1.5 bg-blue-500 text-white rounded text-xs md:text-sm hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 whitespace-nowrap"
-                    >
-                    Save
-                    </button>
+                    {#if hasSavedChanges}
+                        <button 
+                            transition:fade={{ duration: 150 }}
+                            type="button" 
+                            class="px-2 md:px-3 py-1 md:py-1.5 bg-blue-500 text-white rounded text-xs md:text-sm hover:bg-blue-600 transition-colors font-medium whitespace-nowrap"
+                            on:click={handleDownload}
+                        >
+                            Download
+                        </button>
+                    {:else}
+                        <button 
+                            transition:fade={{ duration: 150 }}
+                            type="submit" 
+                            form="metadata-form"
+                            disabled={isSaving}
+                            class="px-2 md:px-3 py-1 md:py-1.5 bg-blue-500 text-white rounded text-xs md:text-sm hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 whitespace-nowrap"
+                        >
+                            Save
+                        </button>
+                    {/if}
                 {/if}
                 <input 
                     type="text" 
@@ -111,7 +147,7 @@
             {#if output?.length > 0}
                 <form 
                     id="metadata-form"
-                    on:submit={handleSubmit}
+                    on:submit|preventDefault={handleSave}
                     class="p-1"
                 >
                     <div class="flex flex-col gap-1 md:grid md:grid-cols-2 md:gap-2 font-mono text-xs lg:text-base md:text-base">
