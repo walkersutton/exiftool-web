@@ -104,34 +104,33 @@
         {#if currentFile && output?.length > 0}
             <div class="flex items-center gap-3" transition:fade={{ duration: 150 }} >
                 {#if isEditing}
-                    <button 
-                        transition:fade={{ duration: 150 }}
-                        type="button" 
-                        class="px-2 md:px-3 py-1 md:py-1.5 bg-gray-200 text-gray-700 rounded text-xs md:text-sm hover:bg-gray-300 border border-gray-300 transition-colors font-medium whitespace-nowrap"
-                        on:click={handleCancel}
-                    >
-                        Cancel
-                    </button>
-                    {#if hasSavedChanges}
+                    <div class="flex items-center gap-3" transition:fade={{ duration: 150 }}>
                         <button 
-                            transition:fade={{ duration: 150 }}
                             type="button" 
-                            class="px-2 md:px-3 py-1 md:py-1.5 bg-blue-500 text-white rounded text-xs md:text-sm hover:bg-blue-600 transition-colors font-medium whitespace-nowrap"
-                            on:click={handleDownload}
+                            class="px-2 md:px-3 py-1 md:py-1.5 bg-gray-200 text-gray-700 rounded text-xs md:text-sm hover:bg-gray-300 border border-gray-300 transition-colors font-medium whitespace-nowrap"
+                            on:click={handleCancel}
                         >
-                            Download
+                            Cancel
                         </button>
-                    {:else}
-                        <button 
-                            transition:fade={{ duration: 150 }}
-                            type="submit" 
-                            form="metadata-form"
-                            disabled={isSaving}
-                            class="px-2 md:px-3 py-1 md:py-1.5 bg-blue-500 text-white rounded text-xs md:text-sm hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 whitespace-nowrap"
-                        >
-                            Save
-                        </button>
-                    {/if}
+                        {#if hasSavedChanges}
+                            <button 
+                                type="button" 
+                                class="px-2 md:px-3 py-1 md:py-1.5 bg-blue-500 text-white rounded text-xs md:text-sm hover:bg-blue-600 transition-colors font-medium whitespace-nowrap"
+                                on:click={handleDownload}
+                            >
+                                Download
+                            </button>
+                        {:else}
+                            <button 
+                                type="submit" 
+                                form="metadata-form"
+                                disabled={isSaving}
+                                class="px-2 md:px-3 py-1 md:py-1.5 bg-blue-500 text-white rounded text-xs md:text-sm hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 whitespace-nowrap"
+                            >
+                                Save
+                            </button>
+                        {/if}
+                    </div>
                 {/if}
                 <input 
                     type="text" 
